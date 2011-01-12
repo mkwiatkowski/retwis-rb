@@ -1,8 +1,8 @@
-
 require 'rubygems'
-require 'sinatra'  
+require 'sinatra'
 require 'erb'
-require 'rubyredis'
+require 'json'
+require 'redis'
 
 require 'domain'
 require 'login-signup'
@@ -10,7 +10,25 @@ require 'login-signup'
 set :sessions, true
 
 def redis
-  $redis ||= RedisClient.new(:timeout => nil)
+  $redis ||= vmc_redis || localhost_redis
+end
+
+def localhost_redis
+  $redis ||= Redis.new
+end
+
+def vmc_redis
+  return unless ENV.key?('VMC_SERVICES')
+  services = ENV['VMC_SERVICES']
+  services = JSON.parse(services)
+
+  redis = nil
+  redis_service = services.find {|service| service["vendor"].downcase == "redis"}
+  if redis_service
+    redis_service = redis_service["options"]
+    redis = Redis.new(:host => redis_service["hostname"], :port => redis_service["port"], :password => redis_service["password"])
+  end
+  redis
 end
 
 before do
